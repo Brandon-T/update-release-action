@@ -2873,6 +2873,30 @@ const core = __importStar(__webpack_require__(310));
 const github_1 = __webpack_require__(462);
 const github_2 = __webpack_require__(462);
 const glob = __webpack_require__(822);
+async function wait_for(milliseconds) {
+    return new Promise(function (resolve, reject) {
+        if (isNaN(milliseconds) || milliseconds <= 0) {
+            reject('Invalid time');
+            return;
+        }
+        setTimeout(() => { resolve(); }, milliseconds);
+    });
+}
+async function try_promise(operation, delay, amount_of_retries) {
+    return new Promise((resolve, reject) => {
+        return operation()
+            .then(resolve)
+            .catch(reason => {
+            if (amount_of_retries - 1 > 0) {
+                return wait_for(delay)
+                    .then(try_promise.bind(null, operation, delay, amount_of_retries - 1))
+                    .then(resolve)
+                    .catch(reject);
+            }
+            return reject(reason);
+        });
+    });
+}
 async function get_or_create_release(token, owner, repo, release_name, tag, delete_existing) {
     const client = new github_1.GitHub(token);
     try {
@@ -2983,6 +3007,8 @@ async function main() {
         const release_notes = core.getInput('release_notes', { required: false });
         const deletes_existing_release = Boolean(JSON.parse(core.getInput('deletes_existing_release', { required: false }) || 'false'));
         const pre_release = Boolean(JSON.parse(core.getInput('pre_release', { required: false }) || 'false'));
+        const retry_count = parseInt(core.getInput('retry_count', { required: false }) || '0');
+        const retry_delay = parseInt(core.getInput('retry_delay', { required: false }) || '5');
         const owner = core.getInput('owner') || github_2.context.repo.owner;
         const repo = core.getInput('repo') || github_2.context.repo.repo;
         const tag = (core.getInput('tag', { required: true }) || github_2.context.ref).replace('refs/tags/', '');
@@ -2994,9 +3020,9 @@ async function main() {
         const files = is_file_glob ? glob.sync(file) : [file];
         const uploads = files.map(file => {
             const file_name = is_file_glob ? path.basename(file) : asset_name || path.basename(file);
-            return upload_asset(token, release.id, owner, repo, file, file_name, release.url, overwrite);
+            return try_promise(() => upload_asset(token, release.id, owner, repo, file, file_name, release.url, overwrite), retry_delay * 1000, retry_count);
         });
-        await Promise.all(uploads);
+        await Promise.allSettled(uploads);
         core.setOutput('result', 'success');
     }
     catch (error) {

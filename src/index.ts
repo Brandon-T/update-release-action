@@ -6,6 +6,39 @@ import { context } from '@actions/github'
 
 const glob = require("glob")
 
+declare global {
+    interface PromiseConstructor {
+        allSettled(promises: Array<Promise<any>>): Promise<Array<{ status: 'fulfilled' | 'rejected', value?: any, reason?: any }>>;
+    }
+}
+
+async function wait_for(milliseconds: number): Promise<void> {
+    return new Promise(function (resolve, reject) {
+        if (isNaN(milliseconds) || milliseconds <= 0) {
+            reject('Invalid time')
+            return
+        }
+        
+        setTimeout(() => { resolve() }, milliseconds)
+    })
+}
+
+async function try_promise(operation: () => Promise<any>, delay: number, amount_of_retries: number): Promise<any> {
+    return new Promise((resolve, reject) => {
+        return operation()
+            .then(resolve)
+            .catch(reason => {
+                if (amount_of_retries - 1 > 0) {
+                    return wait_for(delay)
+                        .then(try_promise.bind(null, operation, delay, amount_of_retries - 1))
+                        .then(resolve)
+                        .catch(reject);
+                }
+                return reject(reason);
+            })
+    })
+}
+
 async function get_or_create_release(token: string, owner: string, repo: string, release_name: string | undefined, tag: string, delete_existing: boolean): Promise<{id: number, name: string, url: string}> {
     const client = new GitHub(token)
 
@@ -127,6 +160,8 @@ async function main(): Promise<void> {
         const release_notes = core.getInput('release_notes', { required: false })
         const deletes_existing_release = Boolean(JSON.parse(core.getInput('deletes_existing_release', { required: false }) || 'false'))
         const pre_release = Boolean(JSON.parse(core.getInput('pre_release', { required: false }) || 'false'))
+        const retry_count = parseInt(core.getInput('retry_count', { required: false }) || '0')
+        const retry_delay = parseInt(core.getInput('retry_delay', { required: false }) || '5')
         const owner = core.getInput('owner') || context.repo.owner
         const repo = core.getInput('repo') || context.repo.repo
         const tag = (core.getInput('tag', { required: true }) || context.ref).replace('refs/tags/', '')
@@ -140,10 +175,10 @@ async function main(): Promise<void> {
         const files = is_file_glob ? glob.sync(file) as [string] : [file]
         const uploads = files.map(file => {
             const file_name = is_file_glob ? path.basename(file) : asset_name || path.basename(file)
-            return upload_asset(token, release.id, owner, repo, file, file_name, release.url, overwrite)
+            return try_promise(() => upload_asset(token, release.id, owner, repo, file, file_name, release.url, overwrite), retry_delay * 1000, retry_count)
         });
 
-        await Promise.all(uploads)
+        await Promise.allSettled(uploads)
         core.setOutput('result', 'success')
     } catch (error) {
         core.setFailed(error.message)

@@ -29,6 +29,12 @@ inputs:
   pre_release:
     description: 'Pre-Release'
     required: false
+  retry_count:
+    description: 'Amount of times to retry uploading each asset upon failure. Default: 0'
+    required: false
+  retry_delay:
+    description: 'Amount of time (in seconds) to wait before retrying an asset upload upon failure. Default: 5s'
+    required: false
   owner:
     description: 'Repository Owner'
     required: false
@@ -44,7 +50,7 @@ inputs:
 
 outputs:
   result: 
-    description: 'JSON array of check-run information [{"id": 1234, "name": "build", "status": "completed|failed", "conclusion": "success|failure"}].'
+    description: 'success'
 
 runs:
   using: 'node12'
