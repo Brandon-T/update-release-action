@@ -1,0 +1,29 @@
+{
+  "private": true,
+  "name": "wait-for-check-action",
+  "scripts": {
+    "build": "tsc && ncc build src/index.js -o src",
+    "test": "tsc --noEmit && jest"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Brandon-T/update-release-action.git"
+  },
+  "author": "Brandon T",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Brandon-T/update-release-action/issues"
+  },
+  "homepage": "https://github.com/Brandon-T/update-release-action#readme",
+  "dependencies": {
+    "@actions/core": "^1.2.4",
+    "@actions/github": "^2.2.0"
+  },
+  "devDependencies": {
+    "@types/jest": "^25.2.3",
+    "@types/node": "^14.0.5",
+    "jest": "^26.0.1",
+    "ts-jest": "^26.0.0",
+    "typescript": "^3.9.3"
+  }
+}

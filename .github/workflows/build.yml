@@ -1,0 +1,46 @@
+name: "build"
+
+on: 
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+        
+      - name: Create Asset
+        run: |
+          echo "Hello" > test.txt
+      
+      - name: Upload Release
+        uses: ./
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          release_name: 'Test'
+          file: 'test.txt'
+          asset_name: 'test.json'
+          is_file_glob: false
+          overwrite: true
+          release_notes: 'Some Notes'
+          deletes_existing_release: true
+          pre_release: false
+          tag: 'test-build'
+          
+      - name: Upload Release Overwrite
+        uses: ./
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          release_name: 'Test'
+          file: 'test.txt'
+          asset_name: 'overwritten.txt'
+          is_file_glob: false
+          overwrite: true
+          release_notes: 'Some New Notes'
+          deletes_existing_release: true
+          pre_release: false
+          tag: 'test-build'
+        
