@@ -29,6 +29,9 @@ inputs:
   pre_release:
     description: 'Pre-Release'
     required: false
+  draft_release:
+    description: 'Draft-Release'
+    required: false
   retry_count:
     description: 'Amount of times to retry uploading each asset upon failure. Default: 0'
     required: false
@@ -44,6 +47,9 @@ inputs:
   tag:
     description: 'Commit hash or tag'
     required: true
+  new_tag:
+    description: 'Update the release specified by tag with a new commit hash or new tag'
+    required: false
   ref:
     description: 'Commit hash or tag'
     required: false

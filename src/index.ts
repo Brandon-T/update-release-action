@@ -6,6 +6,8 @@ import { context } from '@actions/github'
 
 const glob = require("glob")
 
+type ReleaseResult = {id: number, name: string, url: string, prerelease: boolean, draft: boolean}
+
 declare global {
     interface PromiseConstructor {
         allSettled(promises: Array<Promise<any>>): Promise<Array<{ status: 'fulfilled' | 'rejected', value?: any, reason?: any }>>;
@@ -39,7 +41,7 @@ async function try_promise(operation: () => Promise<any>, delay: number, amount_
     })
 }
 
-async function get_or_create_release(token: string, owner: string, repo: string, release_name: string | undefined, tag: string, delete_existing: boolean): Promise<{id: number, name: string, url: string}> {
+async function get_or_create_release(token: string, owner: string, repo: string, release_name: string | undefined, tag: string, delete_existing: boolean, draft_release: boolean): Promise<ReleaseResult> {
     const client = new GitHub(token)
 
     try {
@@ -57,37 +59,45 @@ async function get_or_create_release(token: string, owner: string, repo: string,
             })
 
             const result = await client.repos.createRelease({
-                draft: true,
+                draft: draft_release,
                 name: release_name,
                 owner: owner,
                 repo: repo,
                 tag_name: tag
             })
+
             return {
                 id: result.data.id,
                 name: result.data.name,
-                url: result.data.upload_url
+                url: result.data.upload_url,
+                prerelease: result.data.prerelease,
+                draft: result.data.draft
             }
         }
 
         return {
             id: release.data.id,
             name: release.data.name,
-            url: release.data.upload_url
+            url: release.data.upload_url,
+            prerelease: release.data.prerelease,
+            draft: release.data.draft
         }
     } catch (error) {
         if (error.status === 404) {
             const result = await client.repos.createRelease({
-                draft: true,
+                draft: draft_release,
                 name: release_name,
                 owner: owner,
                 repo: repo,
                 tag_name: tag
             })
+            
             return {
                 id: result.data.id,
                 name: result.data.name,
-                url: result.data.upload_url
+                url: result.data.upload_url,
+                prerelease: result.data.prerelease,
+                draft: result.data.draft
             }
         }
 
@@ -95,12 +105,12 @@ async function get_or_create_release(token: string, owner: string, repo: string,
     }
 }
 
-async function update_release_notes(token: string, release_id: number, owner: string, repo: string, name: string, tag: string, commit: string | undefined, notes: string | undefined, prerelease: boolean): Promise<any> {
+async function update_release(token: string, release_id: number, owner: string, repo: string, name?: string, tag?: string, commit?: string, notes?: string, prerelease?: boolean, draft_release?: boolean): Promise<any> {
     const client = new GitHub(token)
 
     return await client.repos.updateRelease({
         body: notes,
-        draft: false,
+        draft: draft_release,
         name: name,
         owner: owner,
         prerelease: prerelease,
@@ -160,25 +170,42 @@ async function main(): Promise<void> {
         const release_notes = core.getInput('release_notes', { required: false })
         const deletes_existing_release = Boolean(JSON.parse(core.getInput('deletes_existing_release', { required: false }) || 'false'))
         const pre_release = Boolean(JSON.parse(core.getInput('pre_release', { required: false }) || 'false'))
+        const draft_release = Boolean(JSON.parse(core.getInput('draft_release', { required: false }) || 'false'))
         const retry_count = parseInt(core.getInput('retry_count', { required: false }) || '0')
         const retry_delay = parseInt(core.getInput('retry_delay', { required: false }) || '5')
         const owner = core.getInput('owner') || context.repo.owner
         const repo = core.getInput('repo') || context.repo.repo
         const tag = (core.getInput('tag', { required: true }) || context.ref).replace('refs/tags/', '')
+        const new_tag = (core.getInput('new_tag', { required: false }) || tag)
         const ref = core.getInput('ref', { required: false })
 
-        const release = await get_or_create_release(token, owner, repo, release_name, tag, deletes_existing_release)
-        if (release_notes != null) {
-            await update_release_notes(token, release.id, owner, repo, release_name, tag, ref, release_notes, pre_release)
+        const release = await get_or_create_release(token, owner, repo, release_name, tag, deletes_existing_release, draft_release)
+
+        const update_prerelease = core.getInput('pre_release', { required: false }) != null
+        const update_draft = core.getInput('draft_release', { required: false }) != null
+
+        await update_release(
+            token,
+            release.id,
+            owner,
+            repo,
+            release_name,
+            new_tag,
+            ref,
+            release_notes,
+            update_prerelease ? pre_release : release.prerelease,
+            update_draft ? draft_release : release.draft
+        )
+
+        if (file != null) {
+            const files = is_file_glob ? glob.sync(file) as [string] : [file]
+            const uploads = files.map(file => {
+                const file_name = is_file_glob ? path.basename(file) : asset_name || path.basename(file)
+                return try_promise(() => upload_asset(token, release.id, owner, repo, file, file_name, release.url, overwrite), retry_delay * 1000, retry_count)
+            });
+
+            await Promise.allSettled(uploads)
         }
-
-        const files = is_file_glob ? glob.sync(file) as [string] : [file]
-        const uploads = files.map(file => {
-            const file_name = is_file_glob ? path.basename(file) : asset_name || path.basename(file)
-            return try_promise(() => upload_asset(token, release.id, owner, repo, file, file_name, release.url, overwrite), retry_delay * 1000, retry_count)
-        });
-
-        await Promise.allSettled(uploads)
         core.setOutput('result', 'success')
     } catch (error) {
         core.setFailed(error.message)
