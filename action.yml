@@ -32,6 +32,9 @@ inputs:
   prefix_branch_name:
     description: 'Prefix the Branch Name'
     required: false
+  suffix_branch_name:
+    description: 'Suffix the Branch Name'
+    required: false
   draft_release:
     description: 'Draft-Release'
     required: false
