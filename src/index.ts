@@ -205,7 +205,7 @@ async function main(): Promise<void> {
         const repo = core.getInput('repo') || context.repo.repo
         const tag = (core.getInput('tag', { required: true }) || context.ref).replace('refs/tags/', '')
         const new_tag = (core.getInput('new_tag', { required: false }) || tag).replace('refs/tags/', '')
-        const ref = core.getInput('ref', { required: false })
+        const ref = core.getInput('ref', { required: false }) || context.ref.replace('refs/tags/', '')
 
         if (prefix_branch_name && suffix_branch_name) {
             core.setFailed("Error: Cannot set both prefix_branch_name & suffix_branch_name.")
