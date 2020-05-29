@@ -67,7 +67,7 @@ async function try_promise(operation: () => Promise<any>, delay: number, amount_
     })
 }
 
-async function get_or_create_release(token: string, owner: string, repo: string, release_name: string | undefined, tag: string, delete_existing: boolean, draft_release: boolean): Promise<ReleaseResult> {
+async function get_or_create_release(token: string, owner: string, repo: string, release_name: string | undefined, tag: string, ref: string, delete_existing: boolean, draft_release: boolean): Promise<ReleaseResult> {
     const client = new GitHub(token)
 
     try {
@@ -89,7 +89,8 @@ async function get_or_create_release(token: string, owner: string, repo: string,
                 name: release_name,
                 owner: owner,
                 repo: repo,
-                tag_name: tag
+                tag_name: tag,
+                target_commitish: ref
             })
 
             return {
@@ -115,7 +116,8 @@ async function get_or_create_release(token: string, owner: string, repo: string,
                 name: release_name,
                 owner: owner,
                 repo: repo,
-                tag_name: tag
+                tag_name: tag,
+                target_commitish: ref
             })
             
             return {
@@ -223,7 +225,8 @@ async function main(): Promise<void> {
             owner,
             repo,
             `${ prefix }${ release_name }${ suffix }`,
-            `${ prefix.replace(' ', '') }${ tag }${ suffix.replace(' ', '') }`,
+            `${prefix.replace(' ', '')}${tag}${suffix.replace(' ', '')}`,
+            ref,
             deletes_existing_release,
             draft_release
         )
