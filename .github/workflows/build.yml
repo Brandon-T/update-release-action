@@ -43,5 +43,6 @@ jobs:
           release_notes: 'Some New Notes'
           deletes_existing_release: true
           pre_release: false
+          prefix_branch_name: true
           tag: 'test-build'
         
