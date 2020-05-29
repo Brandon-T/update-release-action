@@ -29,6 +29,9 @@ inputs:
   pre_release:
     description: 'Pre-Release'
     required: false
+  prefix_branch_name:
+    description: 'Prefix the Branch Name'
+    required: false
   draft_release:
     description: 'Draft-Release'
     required: false

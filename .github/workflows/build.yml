@@ -28,6 +28,7 @@ jobs:
           release_notes: 'Some Notes'
           deletes_existing_release: true
           pre_release: false
+          prefix_branch_name: true
           tag: 'test-build'
           
       - name: Upload Release Overwrite

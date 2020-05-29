@@ -3013,6 +3013,7 @@ async function main() {
         const release_notes = core.getInput('release_notes', { required: false });
         const deletes_existing_release = Boolean(JSON.parse(core.getInput('deletes_existing_release', { required: false }) || 'false'));
         const pre_release = Boolean(JSON.parse(core.getInput('pre_release', { required: false }) || 'false'));
+        const prefix_branch_name = Boolean(JSON.parse(core.getInput('prefix_branch_name', { required: false }) || 'false'));
         const draft_release = Boolean(JSON.parse(core.getInput('draft_release', { required: false }) || 'false'));
         const retry_count = parseInt(core.getInput('retry_count', { required: false }) || '0');
         const retry_delay = parseInt(core.getInput('retry_delay', { required: false }) || '5');
@@ -3021,10 +3022,11 @@ async function main() {
         const tag = (core.getInput('tag', { required: true }) || github_2.context.ref).replace('refs/tags/', '');
         const new_tag = (core.getInput('new_tag', { required: false }) || tag);
         const ref = core.getInput('ref', { required: false });
-        const release = await get_or_create_release(token, owner, repo, release_name, tag, deletes_existing_release, draft_release);
+        const branch_name = prefix_branch_name ? github_2.context.ref.split('/').pop() || '' : '';
+        const release = await get_or_create_release(token, owner, repo, (branch_name.length > 0 ? `${branch_name} - ` : '') + release_name, tag, deletes_existing_release, draft_release);
         const update_prerelease = core.getInput('pre_release', { required: false }) != null;
         const update_draft = core.getInput('draft_release', { required: false }) != null;
-        await update_release(token, release.id, owner, repo, release_name, new_tag, ref, release_notes, update_prerelease ? pre_release : release.prerelease, update_draft ? draft_release : release.draft);
+        await update_release(token, release.id, owner, repo, (branch_name.length > 0 ? `${branch_name} - ` : '') + release_name, new_tag, ref, release_notes, update_prerelease ? pre_release : release.prerelease, update_draft ? draft_release : release.draft);
         if (file != null) {
             const files = is_file_glob ? glob.sync(file) : [file];
             const uploads = files.map(file => {
