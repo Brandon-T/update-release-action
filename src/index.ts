@@ -14,6 +14,32 @@ declare global {
     }
 }
 
+/*async function check_tag_valid(tag: string): Promise<any> {
+    //const { exec } = require('child_process');
+    const command = 'git check- ref - format `${ tag }` && echo 1 || echo 0'
+    
+    return new Promise((resolve, reject) {
+        exec(command, (err, stdout, stderr) => {
+            if (err) {
+                reject('Invalid Tag')
+              return
+            }
+          
+            if (stdout === '1') {
+                resolve('true')
+                return
+            }
+
+            if (stderr === '1') {
+                resolve('true')
+                return
+            }
+            
+            reject('Invalid Tag')
+          });
+    })
+}*/
+
 async function wait_for(milliseconds: number): Promise<void> {
     return new Promise(function (resolve, reject) {
         if (isNaN(milliseconds) || milliseconds <= 0) {
@@ -178,7 +204,7 @@ async function main(): Promise<void> {
         const owner = core.getInput('owner') || context.repo.owner
         const repo = core.getInput('repo') || context.repo.repo
         const tag = (core.getInput('tag', { required: true }) || context.ref).replace('refs/tags/', '')
-        const new_tag = (core.getInput('new_tag', { required: false }) || tag)
+        const new_tag = (core.getInput('new_tag', { required: false }) || tag).replace('refs/tags/', '')
         const ref = core.getInput('ref', { required: false })
 
         if (prefix_branch_name && suffix_branch_name) {
@@ -187,18 +213,28 @@ async function main(): Promise<void> {
         }
 
         const branch_name = prefix_branch_name || suffix_branch_name ? context.ref.split('/').pop() || '' : ''
-        const release = await get_or_create_release(token, owner, repo, (prefix_branch_name && branch_name.length > 0 ? `${ branch_name } - ` : '') + release_name + (suffix_branch_name && branch_name.length > 0 ? ` - ${ branch_name }` : ''), tag, deletes_existing_release, draft_release)
-
+        const prefix = prefix_branch_name && branch_name.length > 0 ? `${ branch_name } - ` : ''
+        const suffix = suffix_branch_name && branch_name.length > 0 ? `- ${ branch_name }` : ''
         const update_prerelease = core.getInput('pre_release', { required: false }) != null
         const update_draft = core.getInput('draft_release', { required: false }) != null
 
+        const release = await get_or_create_release(
+            token,
+            owner,
+            repo,
+            `${ prefix }${ release_name }${ suffix }`,
+            `${ prefix.replace(' ', '') }${ tag }${ suffix.replace(' ', '') }`,
+            deletes_existing_release,
+            draft_release
+        )
+        
         await update_release(
             token,
             release.id,
             owner,
             repo,
-            (prefix_branch_name && branch_name.length > 0 ? `${ branch_name } - ` : '') + release_name + (suffix_branch_name && branch_name.length > 0 ? ` - ${ branch_name }` : ''),
-            new_tag,
+            `${ prefix }${ release_name }${ suffix }`,
+            `${ prefix.replace(' ', '') }${ new_tag }${ suffix.replace(' ', '') }`,
             ref,
             release_notes,
             update_prerelease ? pre_release : release.prerelease,
