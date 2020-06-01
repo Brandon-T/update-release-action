@@ -36,7 +36,7 @@ declare global {
             }
             
             reject('Invalid Tag')
-          });
+        });
     })
 }*/
 
@@ -78,6 +78,14 @@ async function get_or_create_release(token: string, owner: string, repo: string,
         })
 
         if (delete_existing) {
+            await client.git.updateRef({
+                force: false,
+                owner: owner,
+                ref: `tags/${ tag }`,
+                repo: repo,
+                sha: ref
+            })
+
             await client.repos.deleteRelease({
                 owner: owner,
                 release_id: release.data.id,
@@ -128,7 +136,7 @@ async function get_or_create_release(token: string, owner: string, repo: string,
                 draft: result.data.draft
             }
         }
-
+        
         throw error;
     }
 }
@@ -207,7 +215,7 @@ async function main(): Promise<void> {
         const repo = core.getInput('repo') || context.repo.repo
         const tag = (core.getInput('tag', { required: true }) || context.ref).replace('refs/tags/', '')
         const new_tag = (core.getInput('new_tag', { required: false }) || tag).replace('refs/tags/', '')
-        const ref = core.getInput('ref', { required: false }) || context.ref.replace('refs/tags/', '')
+        const ref = (core.getInput('ref', { required: false }) ? core.getInput('ref', { required: false }).split('/').pop() : undefined) || context.sha
 
         if (prefix_branch_name && suffix_branch_name) {
             core.setFailed("Error: Cannot set both prefix_branch_name & suffix_branch_name.")
@@ -216,7 +224,7 @@ async function main(): Promise<void> {
 
         const branch_name = prefix_branch_name || suffix_branch_name ? context.ref.split('/').pop() || '' : ''
         const prefix = prefix_branch_name && branch_name.length > 0 ? `${ branch_name } - ` : ''
-        const suffix = suffix_branch_name && branch_name.length > 0 ? `- ${ branch_name }` : ''
+        const suffix = suffix_branch_name && branch_name.length > 0 ? ` - ${ branch_name }` : ''
         const update_prerelease = core.getInput('pre_release', { required: false }) != null
         const update_draft = core.getInput('draft_release', { required: false }) != null
 
@@ -225,7 +233,7 @@ async function main(): Promise<void> {
             owner,
             repo,
             `${ prefix }${ release_name }${ suffix }`,
-            `${prefix.replace(' ', '')}${tag}${suffix.replace(' ', '')}`,
+            `${ prefix.replace(/\s/g, '').trim() }${ tag }${ suffix.replace(/\s/g, '') }`,
             ref,
             deletes_existing_release,
             draft_release
@@ -237,7 +245,7 @@ async function main(): Promise<void> {
             owner,
             repo,
             `${ prefix }${ release_name }${ suffix }`,
-            `${ prefix.replace(' ', '') }${ new_tag }${ suffix.replace(' ', '') }`,
+            `${ prefix.replace(/\s/g, '').trim() }${ new_tag }${ suffix.replace(/\s/g, '') }`,
             ref,
             release_notes,
             update_prerelease ? pre_release : release.prerelease,

@@ -2895,7 +2895,7 @@ const glob = __webpack_require__(822);
             }
             
             reject('Invalid Tag')
-          });
+        });
     })
 }*/
 async function wait_for(milliseconds) {
@@ -2922,7 +2922,7 @@ async function try_promise(operation, delay, amount_of_retries) {
         });
     });
 }
-async function get_or_create_release(token, owner, repo, release_name, tag, delete_existing, draft_release) {
+async function get_or_create_release(token, owner, repo, release_name, tag, ref, delete_existing, draft_release) {
     const client = new github_1.GitHub(token);
     try {
         const release = await client.repos.getReleaseByTag({
@@ -2931,6 +2931,13 @@ async function get_or_create_release(token, owner, repo, release_name, tag, dele
             tag: tag
         });
         if (delete_existing) {
+            await client.git.updateRef({
+                force: false,
+                owner: owner,
+                ref: `tags/${tag}`,
+                repo: repo,
+                sha: ref
+            });
             await client.repos.deleteRelease({
                 owner: owner,
                 release_id: release.data.id,
@@ -2941,7 +2948,8 @@ async function get_or_create_release(token, owner, repo, release_name, tag, dele
                 name: release_name,
                 owner: owner,
                 repo: repo,
-                tag_name: tag
+                tag_name: tag,
+                target_commitish: ref
             });
             return {
                 id: result.data.id,
@@ -2966,7 +2974,8 @@ async function get_or_create_release(token, owner, repo, release_name, tag, dele
                 name: release_name,
                 owner: owner,
                 repo: repo,
-                tag_name: tag
+                tag_name: tag,
+                target_commitish: ref
             });
             return {
                 id: result.data.id,
@@ -3047,18 +3056,18 @@ async function main() {
         const repo = core.getInput('repo') || github_2.context.repo.repo;
         const tag = (core.getInput('tag', { required: true }) || github_2.context.ref).replace('refs/tags/', '');
         const new_tag = (core.getInput('new_tag', { required: false }) || tag).replace('refs/tags/', '');
-        const ref = core.getInput('ref', { required: false }) || github_2.context.ref.replace('refs/tags/', '');
+        const ref = (core.getInput('ref', { required: false }) ? core.getInput('ref', { required: false }).split('/').pop() : undefined) || github_2.context.sha;
         if (prefix_branch_name && suffix_branch_name) {
             core.setFailed("Error: Cannot set both prefix_branch_name & suffix_branch_name.");
             return;
         }
         const branch_name = prefix_branch_name || suffix_branch_name ? github_2.context.ref.split('/').pop() || '' : '';
         const prefix = prefix_branch_name && branch_name.length > 0 ? `${branch_name} - ` : '';
-        const suffix = suffix_branch_name && branch_name.length > 0 ? `- ${branch_name}` : '';
+        const suffix = suffix_branch_name && branch_name.length > 0 ? ` - ${branch_name}` : '';
         const update_prerelease = core.getInput('pre_release', { required: false }) != null;
         const update_draft = core.getInput('draft_release', { required: false }) != null;
-        const release = await get_or_create_release(token, owner, repo, `${prefix}${release_name}${suffix}`, `${prefix.replace(' ', '')}${tag}${suffix.replace(' ', '')}`, deletes_existing_release, draft_release);
-        await update_release(token, release.id, owner, repo, `${prefix}${release_name}${suffix}`, `${prefix.replace(' ', '')}${new_tag}${suffix.replace(' ', '')}`, ref, release_notes, update_prerelease ? pre_release : release.prerelease, update_draft ? draft_release : release.draft);
+        const release = await get_or_create_release(token, owner, repo, `${prefix}${release_name}${suffix}`, `${prefix.replace(/\s/g, '').trim()}${tag}${suffix.replace(/\s/g, '')}`, ref, deletes_existing_release, draft_release);
+        await update_release(token, release.id, owner, repo, `${prefix}${release_name}${suffix}`, `${prefix.replace(/\s/g, '').trim()}${new_tag}${suffix.replace(/\s/g, '')}`, ref, release_notes, update_prerelease ? pre_release : release.prerelease, update_draft ? draft_release : release.draft);
         if (file != null) {
             const files = is_file_glob ? glob.sync(file) : [file];
             const uploads = files.map(file => {
