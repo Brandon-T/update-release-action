@@ -2922,7 +2922,7 @@ async function try_promise(operation, delay, amount_of_retries) {
         });
     });
 }
-async function get_or_create_release(token, owner, repo, release_name, tag, ref, delete_existing, draft_release) {
+async function get_or_create_release(token, owner, repo, release_name, tag, ref, delete_existing, draft_release, bump_tag) {
     const client = new github_1.GitHub(token);
     try {
         const release = await client.repos.getReleaseByTag({
@@ -2930,7 +2930,7 @@ async function get_or_create_release(token, owner, repo, release_name, tag, ref,
             repo: repo,
             tag: tag
         });
-        if (delete_existing) {
+        if (bump_tag) {
             await client.git.updateRef({
                 force: false,
                 owner: owner,
@@ -2938,6 +2938,8 @@ async function get_or_create_release(token, owner, repo, release_name, tag, ref,
                 repo: repo,
                 sha: ref
             });
+        }
+        if (delete_existing) {
             await client.repos.deleteRelease({
                 owner: owner,
                 release_id: release.data.id,
@@ -3056,6 +3058,7 @@ async function main() {
         const repo = core.getInput('repo') || github_2.context.repo.repo;
         const tag = (core.getInput('tag', { required: true }) || github_2.context.ref).replace('refs/tags/', '');
         const new_tag = (core.getInput('new_tag', { required: false }) || tag).replace('refs/tags/', '');
+        const bump_tag = Boolean(JSON.parse(core.getInput('bump_tag', { required: false }) || 'false'));
         const ref = (core.getInput('ref', { required: false }) ? core.getInput('ref', { required: false }).split('/').pop() : undefined) || github_2.context.sha;
         if (prefix_branch_name && suffix_branch_name) {
             core.setFailed("Error: Cannot set both prefix_branch_name & suffix_branch_name.");
@@ -3066,7 +3069,7 @@ async function main() {
         const suffix = suffix_branch_name && branch_name.length > 0 ? ` - ${branch_name}` : '';
         const update_prerelease = core.getInput('pre_release', { required: false }) != null;
         const update_draft = core.getInput('draft_release', { required: false }) != null;
-        const release = await get_or_create_release(token, owner, repo, `${prefix}${release_name}${suffix}`, `${prefix.replace(/\s/g, '').trim()}${tag}${suffix.replace(/\s/g, '')}`, ref, deletes_existing_release, draft_release);
+        const release = await get_or_create_release(token, owner, repo, `${prefix}${release_name}${suffix}`, `${prefix.replace(/\s/g, '').trim()}${tag}${suffix.replace(/\s/g, '')}`, ref, deletes_existing_release, draft_release, bump_tag);
         await update_release(token, release.id, owner, repo, `${prefix}${release_name}${suffix}`, `${prefix.replace(/\s/g, '').trim()}${new_tag}${suffix.replace(/\s/g, '')}`, ref, release_notes, update_prerelease ? pre_release : release.prerelease, update_draft ? draft_release : release.draft);
         if (file != null) {
             const files = is_file_glob ? glob.sync(file) : [file];

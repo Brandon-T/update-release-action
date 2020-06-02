@@ -56,6 +56,9 @@ inputs:
   new_tag:
     description: 'Update the release specified by tag with a new commit hash or new tag'
     required: false
+  bump_tag:
+    description: 'Whether or not to update the tag to refer to the latest commit hash'
+    required: false
   ref:
     description: 'Commit hash or tag'
     required: false

@@ -67,7 +67,7 @@ async function try_promise(operation: () => Promise<any>, delay: number, amount_
     })
 }
 
-async function get_or_create_release(token: string, owner: string, repo: string, release_name: string | undefined, tag: string, ref: string, delete_existing: boolean, draft_release: boolean): Promise<ReleaseResult> {
+async function get_or_create_release(token: string, owner: string, repo: string, release_name: string | undefined, tag: string, ref: string, delete_existing: boolean, draft_release: boolean, bump_tag: boolean): Promise<ReleaseResult> {
     const client = new GitHub(token)
 
     try {
@@ -77,7 +77,7 @@ async function get_or_create_release(token: string, owner: string, repo: string,
             tag: tag
         })
 
-        if (delete_existing) {
+        if (bump_tag) {
             await client.git.updateRef({
                 force: false,
                 owner: owner,
@@ -85,7 +85,9 @@ async function get_or_create_release(token: string, owner: string, repo: string,
                 repo: repo,
                 sha: ref
             })
+        }
 
+        if (delete_existing) {
             await client.repos.deleteRelease({
                 owner: owner,
                 release_id: release.data.id,
@@ -215,6 +217,7 @@ async function main(): Promise<void> {
         const repo = core.getInput('repo') || context.repo.repo
         const tag = (core.getInput('tag', { required: true }) || context.ref).replace('refs/tags/', '')
         const new_tag = (core.getInput('new_tag', { required: false }) || tag).replace('refs/tags/', '')
+        const bump_tag = Boolean(JSON.parse(core.getInput('bump_tag', { required: false }) || 'false'))
         const ref = (core.getInput('ref', { required: false }) ? core.getInput('ref', { required: false }).split('/').pop() : undefined) || context.sha
 
         if (prefix_branch_name && suffix_branch_name) {
@@ -236,7 +239,8 @@ async function main(): Promise<void> {
             `${ prefix.replace(/\s/g, '').trim() }${ tag }${ suffix.replace(/\s/g, '') }`,
             ref,
             deletes_existing_release,
-            draft_release
+            draft_release,
+            bump_tag
         )
         
         await update_release(
