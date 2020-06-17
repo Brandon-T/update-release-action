@@ -2925,20 +2925,45 @@ async function try_promise(operation, delay, amount_of_retries) {
 async function get_or_create_release(token, owner, repo, release_name, tag, ref, delete_existing, draft_release, bump_tag) {
     const client = new github_1.GitHub(token);
     try {
+        if (bump_tag) {
+            //Is valid SHA1 or SHA256
+            if (ref.match("^[a-fA-F0-9]{40,64}$") != null) {
+                try {
+                    await client.git.updateRef({
+                        force: false,
+                        owner: owner,
+                        ref: `tags/${tag}`,
+                        repo: repo,
+                        sha: ref
+                    });
+                }
+                catch (error) {
+                    if (error.status !== 422) {
+                        throw error;
+                    }
+                }
+            }
+            else {
+                await client.repos.getBranch({
+                    branch: ref,
+                    owner: owner,
+                    repo: repo
+                }).then((value) => {
+                    return client.git.updateRef({
+                        force: false,
+                        owner: owner,
+                        ref: `tags/${tag}`,
+                        repo: repo,
+                        sha: value.data.commit.sha
+                    });
+                });
+            }
+        }
         const release = await client.repos.getReleaseByTag({
             owner: owner,
             repo: repo,
             tag: tag
         });
-        if (bump_tag) {
-            await client.git.updateRef({
-                force: false,
-                owner: owner,
-                ref: `tags/${tag}`,
-                repo: repo,
-                sha: ref
-            });
-        }
         if (delete_existing) {
             await client.repos.deleteRelease({
                 owner: owner,
